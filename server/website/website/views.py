@@ -332,7 +332,7 @@ def result_view(request, project_id, session_id, result_id):
     metric_data = JSONUtil.loads(target.metric_data.data)
 
     default_metrics = {mname: metric_data[mname] * metric_meta[mname].scale
-                       for mname in default_metrics}
+                       for mname in default_metrics if mname != unicode('99th_lat_ms')}
 
     status = None
     if target.task_ids is not None:
@@ -405,10 +405,12 @@ def handle_result_files(session, files):
         dbms = DBMSCatalog.objects.get(
             type=dbms_type, version=dbms_version)
     except ObjectDoesNotExist:
+        # print('not supported')
         return HttpResponse('{} v{} is not yet supported.'.format(
             dbms_type, dbms_version))
 
     if dbms != session.dbms:
+        # print('not session dbms, expected :{}, actual: {}'.format(session.dbms.full_name, dbms.full_name))
         return HttpResponse('The DBMS must match the type and version '
                             'specified when creating the session. '
                             '(expected=' + session.dbms.full_name + ') '
@@ -729,7 +731,7 @@ def get_workload_data(request):
             if r.knob_data.pk in added or str(r.knob_data.pk) not in knob_confs:
                 continue
             added.add(r.knob_data.pk)
-            data_val = metric_data[met] * met_info.scale
+            data_val = metric_data[met] * met_info.scale if met != unicode('99th_lat_ms') else 0
             data_package['results'][-1]['data'][0].append([
                 i,
                 data_val,
@@ -810,6 +812,8 @@ def get_timeline_data(request):
             res.metric_data.name,
             res.workload.name]
         for met in metrics:
+            if met == unicode('99th_lat_ms'):
+                continue
             entry.append(metric_datas[res.pk][met] * metric_meta[met].scale)
         entry.extend([
             '',
@@ -846,7 +850,7 @@ def get_timeline_data(request):
                     metric_data = JSONUtil.loads(res.metric_data.data)
                     out.append([
                         res.observation_end_time.strftime("%m-%d-%y %H:%M"),
-                        metric_data[metric] * met_info.scale,
+                        metric_data[metric] * met_info.scale if metric != unicode('99th_lat_ms') else 0,
                         "",
                         str(res.pk)
                     ])
